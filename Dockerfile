@@ -22,6 +22,10 @@ COPY server/ ./server/
 # Copy built client from builder
 COPY --from=builder /app/client/dist ./client/dist
 
+# Startup script
+COPY startup.sh /app/startup.sh
+RUN chmod +x /app/startup.sh
+
 # Ensure data directory persists
 RUN mkdir -p /app/server/data
 VOLUME /app/server/data
@@ -29,4 +33,4 @@ VOLUME /app/server/data
 EXPOSE 3000
 ENV PORT=3000
 
-CMD ["node", "server/index.js"]
+CMD ["/app/startup.sh"]

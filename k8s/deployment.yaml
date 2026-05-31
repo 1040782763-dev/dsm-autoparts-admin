@@ -56,3 +56,22 @@ spec:
       targetPort: 3000
   selector:
     app: dsm-autoparts
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dsm-autoparts
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dsm-autoparts
+                port:
+                  number: 3000
