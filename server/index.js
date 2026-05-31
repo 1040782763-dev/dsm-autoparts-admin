@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getDb, run, queryAll } from './db.js';
+import { getDb, run, queryAll, saveDb } from './db.js';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
@@ -93,19 +93,22 @@ async function ensureDefaults() {
     console.log(`Parts already exist: ${partCount[0]?.c || 0}`);
   }
 
-  // Import parts from JSON if available
+  // Import parts from JSON if available (batch insert, save once at end)
   try {
     const jsonPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data', 'parts_import.json');
     if (fs.existsSync(jsonPath)) {
       const partsData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+      const db = await getDb();
+      // Use raw db.run for speed (avoid saveDb on each insert)
+      const stmt = db.prepare('INSERT OR IGNORE INTO parts (part_number, name_en, name_sw, category, wholesale_cost, selling_price, retail_market_price, unit, stock_quantity, description) VALUES (?,?,?,?,?,?,?,?,?,?)');
       let added = 0;
       for (const p of partsData) {
-        try {
-          run('INSERT OR IGNORE INTO parts (part_number, name_en, name_sw, category, wholesale_cost, selling_price, retail_market_price, unit, stock_quantity, description) VALUES (?,?,?,?,?,?,?,?,?,?)',
-            [p.part_number, p.name_en, p.name_sw, p.category, p.wholesale_cost, p.selling_price, p.retail_market_price, p.unit, p.stock_quantity, p.description]);
-          added++;
-        } catch { /* skip duplicates */ }
+        stmt.run([p.part_number, p.name_en, p.name_sw, p.category, p.wholesale_cost, p.selling_price, p.retail_market_price, p.unit, p.stock_quantity, p.description]);
+        added++;
       }
+      stmt.free();
+      // Save once
+      saveDb();
       const total = queryAll('SELECT COUNT(*) as c FROM parts');
       console.log(`Imported ${added} parts from JSON. Total: ${total[0]?.c}`);
     }
