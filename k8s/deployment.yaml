@@ -18,7 +18,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: app
-          image: ghcr.io/1040782763-dev/dsm-autoparts:v1.0.11
+          image: ghcr.io/1040782763-dev/dsm-autoparts:v1.0.12
           ports:
             - containerPort: 3000
           env:

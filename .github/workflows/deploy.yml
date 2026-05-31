@@ -62,11 +62,11 @@ jobs:
             --docker-password=${{ secrets.GITHUB_TOKEN }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Force reset PVC
-        run: |
-          kubectl delete deployment dsm-autoparts --ignore-not-found=true --wait=true
-          kubectl delete pvc dsm-autoparts-data --ignore-not-found=true --wait=true --force --grace-period=0
-          sleep 10
+      - name: Deploy to Sealos
+        run: kubectl apply -f k8s/deployment.yaml
+
+      - name: Restart deployment
+        run: kubectl rollout restart deployment/dsm-autoparts
 
       - name: Deploy to Sealos
         run: kubectl apply -f k8s/deployment.yaml
