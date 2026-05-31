@@ -49,10 +49,14 @@ app.get('/api/setup', async (req, res) => {
   }
   result.users = queryAll('SELECT COUNT(*) as c FROM users')[0].c;
 
-  // 2. Import garages
-  const gPath = path.join(__dirname, 'data', 'garages_import.json');
-  if (fs.existsSync(gPath)) {
-    const garages = JSON.parse(fs.readFileSync(gPath, 'utf-8'));
+  // 2. Import garages - try multiple paths
+  const gPaths = [
+    path.join(__dirname, 'data', 'garages_import.json'),
+    path.join(__dirname, '..', 'server', 'data', 'garages_import.json'),
+    path.join('/app', 'server', 'data', 'garages_import.json'),
+  ];
+  let gPath = gPaths.find(p => fs.existsSync(p));
+  if (gPath) {
     for (const g of garages) {
       if (!g.name || g.status === 'flagged') continue;
       if (queryAll('SELECT id FROM customers WHERE garage_name = ?', [g.name]).length > 0) continue;
@@ -65,9 +69,14 @@ app.get('/api/setup', async (req, res) => {
     result.garages = queryAll('SELECT COUNT(*) as c FROM customers')[0].c;
   }
 
-  // 3. Import parts
-  const pPath = path.join(__dirname, 'data', 'parts_import.json');
-  if (fs.existsSync(pPath)) {
+  // 3. Import parts - try multiple paths
+  const pPaths = [
+    path.join(__dirname, 'data', 'parts_import.json'),
+    path.join(__dirname, '..', 'server', 'data', 'parts_import.json'),
+    path.join('/app', 'server', 'data', 'parts_import.json'),
+  ];
+  let pPath = pPaths.find(p => fs.existsSync(p));
+  if (pPath) {
     const parts = JSON.parse(fs.readFileSync(pPath, 'utf-8'));
     const db = await getDb();
     const stmt = db.prepare('INSERT OR IGNORE INTO parts (part_number, name_en, name_sw, category, wholesale_cost, selling_price, retail_market_price, unit, stock_quantity, description) VALUES (?,?,?,?,?,?,?,?,?,?)');
@@ -79,7 +88,7 @@ app.get('/api/setup', async (req, res) => {
     result.parts = queryAll('SELECT COUNT(*) as c FROM parts')[0].c;
   }
 
-  res.json({ ok: true, ...result });
+  res.json({ ok: true, ...result, dir: __dirname, gPath: gPath || 'NOT_FOUND', pPath: pPath || 'NOT_FOUND' });
 });
 
 // API routes
