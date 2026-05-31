@@ -3,9 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDb, run, queryAll, saveDb } from './db.js';
-import bcrypt from 'bcryptjs';
 import fs from 'fs';
-import path from 'path';
 import authRoutes from './routes/auth.js';
 import customerRoutes from './routes/customers.js';
 import partRoutes from './routes/parts.js';
@@ -52,24 +50,25 @@ app.get('*', (req, res) => {
   }
 });
 
-async function ensureUsers() {
-  // Create admin if not exists
+function ensureUsers() {
+  // Pre-computed bcrypt hashes (cost 8)
+  const ADMIN_HASH = '$2a$08$9d6axGSYzqAFuU9PUET7fOSmEXDRfWAeBi/9CssqFv0A6G0HJGFNO';
+  const SALES_HASH = '$2a$08$SZTNb6v3P/apByfn2NpSvuD1TEqwmhZi5Pl5NUn9.Fp0Fgj12xwVu';
+  const CUST_HASH  = '$2a$08$YEgBojVioP6ebpnuA2zbmunWKCt/iwdigdoSHgAZyy7FIMwgoaMFO';
+
   const adminExists = queryAll("SELECT id FROM users WHERE username = 'admin'");
   if (adminExists.length === 0) {
-    const hash = await bcrypt.hash('admin123', 10);
-    run("INSERT INTO users (username, password, role, full_name, phone) VALUES ('admin',?,'admin','Admin','+255000000000')", [hash]);
+    run("INSERT INTO users (username, password, role, full_name, phone) VALUES ('admin',?,'admin','Admin','+255000000000')", [ADMIN_HASH]);
     console.log('Created admin');
   }
   const spExists = queryAll("SELECT id FROM users WHERE username = 'sales1'");
   if (spExists.length === 0) {
-    const hash = await bcrypt.hash('sales123', 10);
-    run("INSERT INTO users (username, password, role, full_name, phone, whatsapp) VALUES ('sales1',?,'salesperson','Juma Mwangi','+255710000001','+255710000001')", [hash]);
+    run("INSERT INTO users (username, password, role, full_name, phone, whatsapp) VALUES ('sales1',?,'salesperson','Juma Mwangi','+255710000001','+255710000001')", [SALES_HASH]);
     console.log('Created salesperson');
   }
   const custExists = queryAll("SELECT id FROM users WHERE username = 'garage1'");
   if (custExists.length === 0) {
-    const hash = await bcrypt.hash('cust123', 10);
-    run("INSERT INTO users (username, password, role, full_name, phone) VALUES ('garage1',?,'customer','Test Garage','+255710000002')", [hash]);
+    run("INSERT INTO users (username, password, role, full_name, phone) VALUES ('garage1',?,'customer','Test Garage','+255710000002')", [CUST_HASH]);
     console.log('Created customer');
   }
   console.log('Users ready');
@@ -105,7 +104,7 @@ async function importPartsFromJson() {
 
 async function start() {
   await getDb();
-  await ensureUsers();         // Fast: create users
+  ensureUsers();               // Fast: create users (synchronous)
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
