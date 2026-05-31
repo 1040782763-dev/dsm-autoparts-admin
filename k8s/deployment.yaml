@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dsm-autoparts
+  labels:
+    app: dsm-autoparts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dsm-autoparts
+  template:
+    metadata:
+      labels:
+        app: dsm-autoparts
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: app
+          image: ghcr.io/1040782763-dev/dsm-autoparts:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: JWT_SECRET
+              value: "dsm-autoparts-prod-secret-2026"
+          volumeMounts:
+            - name: data
+              mountPath: /app/server/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: dsm-autoparts-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dsm-autoparts-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dsm-autoparts
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+  selector:
+    app: dsm-autoparts
