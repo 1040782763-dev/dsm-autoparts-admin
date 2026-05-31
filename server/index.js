@@ -88,7 +88,13 @@ app.get('/api/setup', async (req, res) => {
     result.parts = queryAll('SELECT COUNT(*) as c FROM parts')[0].c;
   }
 
-  res.json({ ok: true, ...result, dir: __dirname, gPath: gPath || 'NOT_FOUND', pPath: pPath || 'NOT_FOUND' });
+  // Debug: list data dir
+  let dataFiles = [];
+  try {
+    const dataDir = path.join(__dirname, 'data');
+    if (fs.existsSync(dataDir)) dataFiles = fs.readdirSync(dataDir);
+  } catch {}
+  res.json({ ok: true, ...result, dir: __dirname, dataFiles, gPath: gPath || 'NOT_FOUND', pPath: pPath || 'NOT_FOUND' });
 });
 
 // API routes
