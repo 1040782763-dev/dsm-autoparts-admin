@@ -29,6 +29,28 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, users: users.length, parts: parts[0]?.c || 0 });
 });
 
+// One-time setup endpoint (no auth, call once after deployment)
+app.get('/api/setup', (req, res) => {
+  const ADMIN_HASH = '$2a$08$9d6axGSYzqAFuU9PUET7fOSmEXDRfWAeBi/9CssqFv0A6G0HJGFNO';
+  const SALES_HASH = '$2a$08$SZTNb6v3P/apByfn2NpSvuD1TEqwmhZi5Pl5NUn9.Fp0Fgj12xwVu';
+  const CUST_HASH  = '$2a$08$YEgBojVioP6ebpnuA2zbmunWKCt/iwdigdoSHgAZyy7FIMwgoaMFO';
+
+  const admin = queryAll("SELECT id FROM users WHERE username = 'admin'");
+  if (admin.length === 0) {
+    run("INSERT INTO users (username, password, role, full_name, phone) VALUES ('admin',?,'admin','Admin','+255000000000')", [ADMIN_HASH]);
+  }
+  const sp = queryAll("SELECT id FROM users WHERE username = 'sales1'");
+  if (sp.length === 0) {
+    run("INSERT INTO users (username, password, role, full_name, phone, whatsapp) VALUES ('sales1',?,'salesperson','Juma Mwangi','+255710000001','+255710000001')", [SALES_HASH]);
+  }
+  const cust = queryAll("SELECT id FROM users WHERE username = 'garage1'");
+  if (cust.length === 0) {
+    run("INSERT INTO users (username, password, role, full_name, phone) VALUES ('garage1',?,'customer','Test Garage','+255710000002')", [CUST_HASH]);
+  }
+  const users = queryAll('SELECT id, username, role FROM users');
+  res.json({ ok: true, users: users.map(u => ({ id: u.id, username: u.username, role: u.role })) });
+});
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);
