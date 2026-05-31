@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dsm-autoparts-secret-key-2026';
+const JWT_SECRET = 'dsm-autoparts-secret-key-2026';
 
 export function generateToken(user) {
   return jwt.sign(
@@ -16,9 +16,11 @@ export function authRequired(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {
-    req.user = jwt.verify(header.split(' ')[1], JWT_SECRET);
+    const token = header.split(' ')[1];
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
-  } catch {
+  } catch (e) {
+    console.error('JWT verify failed:', e.message);
     return res.status(401).json({ error: 'Invalid token' });
   }
 }

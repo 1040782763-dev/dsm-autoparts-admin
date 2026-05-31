@@ -13,20 +13,25 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      if (user?.role === 'admin') {
-        const dash = await api.dashboard();
-        setData({ dash, type: 'admin' });
-      } else if (user?.role === 'salesperson') {
-        const today = new Date().toISOString().slice(0, 10);
-        const [cust, orders, summary] = await Promise.all([
-          api.customers({ active: '1' }),
-          api.ordersDaily(today),
-          api.dailySummary(today),
-        ]);
-        setData({ customers: cust, orders, summary, type: 'sales' });
-      } else {
-        const orders = await api.orders({});
-        setData({ orders, type: 'customer' });
+      try {
+        if (user?.role === 'admin') {
+          const dash = await api.dashboard();
+          setData({ dash, type: 'admin' });
+        } else if (user?.role === 'salesperson') {
+          const today = new Date().toISOString().slice(0, 10);
+          const [cust, orders, summary] = await Promise.all([
+            api.customers({ active: '1' }),
+            api.ordersDaily(today),
+            api.dailySummary(today),
+          ]);
+          setData({ customers: cust, orders, summary, type: 'sales' });
+        } else {
+          const orders = await api.orders({});
+          setData({ orders, type: 'customer' });
+        }
+      } catch (e) {
+        console.error('Dashboard load error:', e);
+        setData({ error: true });
       }
     }
     load();
@@ -35,6 +40,7 @@ export default function Dashboard() {
   const fm = (v) => Number(v || 0).toLocaleString() + ' TZS';
 
   if (!data) return <div className="p-8 text-center text-gray-500">{t('loading')}</div>;
+  if (data.error) return <div className="p-8 text-center text-red-500">Failed to load dashboard. <button onClick={() => window.location.reload()} className="text-blue-600 underline">Retry</button></div>;
 
   if (data.type === 'admin') {
     const d = data.dash;
