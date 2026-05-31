@@ -62,6 +62,9 @@ jobs:
             --docker-password=${{ secrets.GITHUB_TOKEN }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: Delete old PVC to reset database
+        run: kubectl delete pvc dsm-autoparts-data --ignore-not-found=true
+
       - name: Deploy to Sealos
         run: kubectl apply -f k8s/deployment.yaml
 
