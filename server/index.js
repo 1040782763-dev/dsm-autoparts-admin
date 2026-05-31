@@ -52,86 +52,65 @@ app.get('*', (req, res) => {
   }
 });
 
-async function ensureDefaults() {
+async function ensureUsers() {
   // Create admin if not exists
   const adminExists = queryAll("SELECT id FROM users WHERE username = 'admin'");
   if (adminExists.length === 0) {
     const hash = await bcrypt.hash('admin123', 10);
     run("INSERT INTO users (username, password, role, full_name, phone) VALUES ('admin',?,'admin','Admin','+255000000000')", [hash]);
-    console.log('Created default admin user');
+    console.log('Created admin');
   }
-
-  // Create salesperson
   const spExists = queryAll("SELECT id FROM users WHERE username = 'sales1'");
   if (spExists.length === 0) {
     const hash = await bcrypt.hash('sales123', 10);
     run("INSERT INTO users (username, password, role, full_name, phone, whatsapp) VALUES ('sales1',?,'salesperson','Juma Mwangi','+255710000001','+255710000001')", [hash]);
-    console.log('Created default salesperson');
+    console.log('Created salesperson');
   }
-
-  // Create customer test account
   const custExists = queryAll("SELECT id FROM users WHERE username = 'garage1'");
   if (custExists.length === 0) {
     const hash = await bcrypt.hash('cust123', 10);
     run("INSERT INTO users (username, password, role, full_name, phone) VALUES ('garage1',?,'customer','Test Garage','+255710000002')", [hash]);
-    console.log('Created default customer');
+    console.log('Created customer');
   }
+  console.log('Users ready');
+}
 
-  // Seed sample parts if empty
-  const partCount = queryAll("SELECT COUNT(*) as c FROM parts");
-  if (partCount[0]?.c === 0) {
-    const parts = [
-      ['BRK-TY-001','Brake Pads - Toyota Hiace','breki pedi - Toyota Hiace','brakes',28000,36000,50000,'set'],
-      ['BRK-CR-001','Brake Pads - Corolla','breki pedi - Corolla','brakes',25000,33000,48000,'set'],
-      ['OIL-FL-001','Oil Filter - Toyota','chujio mafuta - Toyota','filters',8000,12000,18000,'piece'],
-      ['OIL-FL-002','Oil Filter - Nissan','chujio mafuta - Nissan','filters',7000,11000,17000,'piece'],
-      ['CLT-HI-001','Clutch Kit - Hiace','clutch - Hiace','clutch',120000,160000,230000,'set'],
-      ['BRG-FR-001','Front Wheel Bearing - Toyota','bearing mbele - Toyota','bearings',45000,60000,85000,'piece'],
-      ['SUS-SH-001','Shock Absorber Front - Hiace','shock absorber mbele - Hiace','suspension',65000,85000,120000,'piece'],
-      ['SPK-NG-001','Spark Plug - NGK','spark plug - NGK','electrical',5000,7500,12000,'piece'],
-      ['BELT-TY-001','Fan Belt - Toyota','fan belt - Toyota','belts',15000,20000,30000,'piece'],
-      ['ALT-TY-001','Alternator - Toyota Hiace','alternator - Toyota Hiace','electrical',180000,230000,320000,'piece'],
-    ];
-    for (const [pn,en,sw,cat,wc,sp,rp,unit] of parts) {
-      run("INSERT INTO parts (part_number,name_en,name_sw,category,wholesale_cost,selling_price,retail_market_price,unit) VALUES (?,?,?,?,?,?,?,?)", [pn,en,sw,cat,wc,sp,rp,unit]);
-    }
-    console.log(`Added ${parts.length} sample parts`);
-  } else {
-    console.log(`Parts already exist: ${partCount[0]?.c || 0}`);
-  }
-
-  // Import parts from JSON if available (batch insert, save once at end)
+async function importPartsFromJson() {
   try {
     const jsonPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data', 'parts_import.json');
-    if (fs.existsSync(jsonPath)) {
-      const partsData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-      const db = await getDb();
-      // Use raw db.run for speed (avoid saveDb on each insert)
-      const stmt = db.prepare('INSERT OR IGNORE INTO parts (part_number, name_en, name_sw, category, wholesale_cost, selling_price, retail_market_price, unit, stock_quantity, description) VALUES (?,?,?,?,?,?,?,?,?,?)');
-      let added = 0;
-      for (const p of partsData) {
-        stmt.run([p.part_number, p.name_en, p.name_sw, p.category, p.wholesale_cost, p.selling_price, p.retail_market_price, p.unit, p.stock_quantity, p.description]);
-        added++;
-      }
-      stmt.free();
-      // Save once
-      saveDb();
-      const total = queryAll('SELECT COUNT(*) as c FROM parts');
-      console.log(`Imported ${added} parts from JSON. Total: ${total[0]?.c}`);
-    }
-  } catch (e) {
-    console.log('Parts JSON import skipped:', e.message);
-  }
+    if (!fs.existsSync(jsonPath)) { console.log('No parts JSON found, skipping'); return; }
 
-  console.log('Defaults check complete');
+    // Check if already imported
+    const existing = queryAll('SELECT COUNT(*) as c FROM parts WHERE part_number LIKE ?', ['%']);
+    if (existing[0]?.c > 100) { console.log(`Parts already loaded: ${existing[0].c}`); return; }
+
+    console.log('Importing parts from JSON...');
+    const partsData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    const db = await getDb();
+    const stmt = db.prepare('INSERT OR IGNORE INTO parts (part_number, name_en, name_sw, category, wholesale_cost, selling_price, retail_market_price, unit, stock_quantity, description) VALUES (?,?,?,?,?,?,?,?,?,?)');
+
+    let added = 0;
+    for (const p of partsData) {
+      stmt.run([p.part_number, p.name_en, p.name_sw, p.category, p.wholesale_cost, p.selling_price, p.retail_market_price, p.unit, p.stock_quantity, p.description]);
+      added++;
+      if (added % 1000 === 0) console.log(`  ${added}/${partsData.length} parts imported...`);
+    }
+    stmt.free();
+    saveDb();
+    console.log(`Parts import done: ${added} parts`);
+  } catch (e) {
+    console.error('Parts import error:', e.message);
+  }
 }
 
 async function start() {
   await getDb();
-  await ensureDefaults();
+  await ensureUsers();         // Fast: create users
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+  // Slow: import parts in background (server already accepting requests)
+  importPartsFromJson();
 }
 
 start();
