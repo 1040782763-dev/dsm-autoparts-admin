@@ -48,7 +48,6 @@ function createUsers() {
 
 function importGarages() {
   try {
-    if (queryAll('SELECT COUNT(*) as c FROM customers')[0].c > 0) return;
     const gPath = path.join(__dirname, 'seed-data', 'garages_import.json');
     if (!fs.existsSync(gPath)) { console.log('No garage JSON at', gPath); return; }
     const garages = JSON.parse(fs.readFileSync(gPath, 'utf-8'));
@@ -88,6 +87,15 @@ async function importParts() {
 
 // === Setup (no auth, fast - just users + garages) ===
 app.get('/api/setup', (req, res) => {
+  const force = req.query.force === '1';
+  if (force) {
+    run('DELETE FROM customers');
+    run('DELETE FROM parts');
+    run('DELETE FROM order_items');
+    run('DELETE FROM orders');
+    run('DELETE FROM payments');
+    saveDb();
+  }
   createUsers();
   importGarages();
   res.json({
