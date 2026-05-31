@@ -86,15 +86,36 @@ async function importParts() {
   } catch (e) { console.log('Parts import:', e.message); }
 }
 
-// === Setup (no auth, triggers all imports) ===
-app.get('/api/setup', async (req, res) => {
+// === Setup (no auth, fast - just users + garages) ===
+app.get('/api/setup', (req, res) => {
   createUsers();
   importGarages();
-  await importParts();
-  const users = queryAll('SELECT COUNT(*) as c FROM users')[0].c;
-  const garages = queryAll('SELECT COUNT(*) as c FROM customers')[0].c;
-  const parts = queryAll('SELECT COUNT(*) as c FROM parts')[0].c;
-  res.json({ ok: true, users, garages, parts });
+  res.json({
+    ok: true,
+    users: queryAll('SELECT COUNT(*) as c FROM users')[0].c,
+    garages: queryAll('SELECT COUNT(*) as c FROM customers')[0].c,
+    parts: queryAll('SELECT COUNT(*) as c FROM parts')[0].c,
+  });
+});
+
+// === Parts import (no auth, chunked, call after server is stable) ===
+app.get('/api/setup/parts', (req, res) => {
+  res.json({ status: 'use POST /api/setup/parts with parts JSON body in batches of 500' });
+});
+
+app.post('/api/setup/parts', async (req, res) => {
+  try {
+    const parts = req.body;
+    if (!Array.isArray(parts) || parts.length === 0) return res.status(400).json({ error: 'Array required' });
+    const db = await getDb();
+    const stmt = db.prepare('INSERT OR IGNORE INTO parts (part_number,name_en,name_sw,category,wholesale_cost,selling_price,retail_market_price,unit,stock_quantity,description) VALUES (?,?,?,?,?,?,?,?,?,?)');
+    for (const p of parts) {
+      stmt.run([p.part_number, p.name_en, p.name_sw, p.category, p.wholesale_cost, p.selling_price, p.retail_market_price, p.unit, p.stock_quantity, p.description]);
+    }
+    stmt.free();
+    saveDb();
+    res.json({ ok: true, imported: parts.length, total: queryAll('SELECT COUNT(*) as c FROM parts')[0].c });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // === API routes ===
@@ -123,7 +144,6 @@ async function start() {
   createUsers();
   importGarages();
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  await importParts(); // Background import after server starts
 }
 
 start();
