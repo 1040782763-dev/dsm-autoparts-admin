@@ -48,6 +48,7 @@ function createUsers() {
 
 function importGarages() {
   try {
+    if (queryAll('SELECT COUNT(*) as c FROM customers')[0].c > 0) return;
     const gPath = path.join(__dirname, 'seed-data', 'garages_import.json');
     if (!fs.existsSync(gPath)) { console.log('No garage JSON at', gPath); return; }
     const garages = JSON.parse(fs.readFileSync(gPath, 'utf-8'));
@@ -87,15 +88,6 @@ async function importParts() {
 
 // === Setup (no auth, fast - just users + garages) ===
 app.get('/api/setup', (req, res) => {
-  const force = req.query.force === '1';
-  if (force) {
-    run('DELETE FROM customers');
-    run('DELETE FROM parts');
-    run('DELETE FROM order_items');
-    run('DELETE FROM orders');
-    run('DELETE FROM payments');
-    saveDb();
-  }
   createUsers();
   importGarages();
   res.json({
@@ -104,6 +96,28 @@ app.get('/api/setup', (req, res) => {
     garages: queryAll('SELECT COUNT(*) as c FROM customers')[0].c,
     parts: queryAll('SELECT COUNT(*) as c FROM parts')[0].c,
   });
+});
+
+// === Force reimport (no auth) ===
+app.get('/api/setup/force-garages', (req, res) => {
+  try {
+    run('DELETE FROM customers');
+    saveDb();
+    const gPath = path.join(__dirname, 'seed-data', 'garages_import.json');
+    if (!fs.existsSync(gPath)) return res.json({ ok: false, error: 'File not found' });
+    const garages = JSON.parse(fs.readFileSync(gPath, 'utf-8'));
+    let n = 0;
+    for (const g of garages) {
+      if (!g.name || g.status === 'flagged') continue;
+      let lat = null, lng = null;
+      const m = (g.mapsUrl || '').match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+      if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); }
+      run('INSERT INTO customers (garage_name,address,latitude,longitude,tier,phone,maps_url,source) VALUES (?,?,?,?,?,?,?,?)',
+        [g.name, g.address || 'Dar es Salaam', lat, lng, 'C', g.phone || null, g.mapsUrl || null, 'scraped']);
+      n++;
+    }
+    res.json({ ok: true, imported: n, total: queryAll('SELECT COUNT(*) as c FROM customers')[0].c });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // === Parts import (no auth, chunked, call after server is stable) ===
