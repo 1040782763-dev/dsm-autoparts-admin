@@ -24,6 +24,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({ origin: true, credentials: true, exposedHeaders: ['Authorization'] }));
 app.use(express.json({ limit: '10mb' }));
 
+// Health check (no auth)
+app.get('/api/health', (req, res) => {
+  const users = queryAll('SELECT id, username, role FROM users');
+  const parts = queryAll('SELECT COUNT(*) as c FROM parts');
+  res.json({ ok: true, users: users.length, parts: parts[0]?.c || 0 });
+});
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);
