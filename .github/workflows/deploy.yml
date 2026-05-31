@@ -65,6 +65,9 @@ jobs:
       - name: Deploy to Sealos
         run: kubectl apply -f k8s/deployment.yaml
 
+      - name: Restart deployment
+        run: kubectl rollout restart deployment/dsm-autoparts
+
       - name: Wait for deployment
         run: kubectl rollout status deployment/dsm-autoparts --timeout=120s
 
