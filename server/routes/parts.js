@@ -6,13 +6,22 @@ const router = Router();
 
 router.get('/', authRequired, (req, res) => {
   let sql = 'SELECT * FROM parts WHERE 1=1';
+  let countSql = 'SELECT COUNT(*) as total FROM parts WHERE 1=1';
   const params = [];
-  const { search, category, active } = req.query;
-  if (search) { sql += ' AND (name_en LIKE ? OR name_sw LIKE ? OR part_number LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
-  if (category) { sql += ' AND category = ?'; params.push(category); }
-  if (active !== undefined) { sql += ' AND active = ?'; params.push(parseInt(active)); }
+  const { search, category, active, page, limit } = req.query;
+  if (search) { const s = `%${search}%`; sql += ' AND (name_en LIKE ? OR name_sw LIKE ? OR part_number LIKE ?)'; countSql += ' AND (name_en LIKE ? OR name_sw LIKE ? OR part_number LIKE ?)'; params.push(s, s, s); }
+  if (category) { sql += ' AND category = ?'; countSql += ' AND category = ?'; params.push(category); }
+  if (active !== undefined) { sql += ' AND active = ?'; countSql += ' AND active = ?'; params.push(parseInt(active)); }
   sql += ' ORDER BY category, name_en';
-  res.json(queryAll(sql, params));
+
+  const pageNum = parseInt(page) || 1;
+  const pageSize = Math.min(parseInt(limit) || 50, 200);
+  const offset = (pageNum - 1) * pageSize;
+  sql += ` LIMIT ${pageSize} OFFSET ${offset}`;
+
+  const total = queryAll(countSql, params);
+  const rows = queryAll(sql, params);
+  res.json({ rows, total: total[0]?.total || 0, page: pageNum, limit: pageSize });
 });
 
 router.get('/categories', authRequired, (req, res) => {

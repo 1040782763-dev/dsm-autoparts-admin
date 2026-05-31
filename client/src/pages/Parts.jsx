@@ -8,6 +8,8 @@ export default function Parts() {
   const { user } = useAuth();
   const { t } = useT();
   const [parts, setParts] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -15,9 +17,12 @@ export default function Parts() {
   const [form, setForm] = useState({ part_number: '', name_en: '', name_sw: '', category: '', wholesale_cost: '', selling_price: '', retail_market_price: '', unit: 'piece' });
 
   useEffect(() => {
-    api.parts({ search: search || undefined, category: category || undefined }).then(setParts);
+    api.parts({ search: search || undefined, category: category || undefined, page, limit: 50 }).then(data => {
+      setParts(data.rows || data);
+      setTotal(data.total || (Array.isArray(data) ? data.length : 0));
+    });
     api.partCategories().then(setCategories);
-  }, [search, category]);
+  }, [search, category, page]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -32,7 +37,7 @@ export default function Parts() {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-lg font-bold">{t('partsCatalog')} ({parts.length})</h1>
+        <h1 className="text-lg font-bold">{t('partsCatalog')} ({total})</h1>
         {user?.role === 'admin' && <button onClick={() => setShowForm(!showForm)} className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1"><Plus size={14} /> {t('addPart')}</button>}
       </div>
 
@@ -56,6 +61,13 @@ export default function Parts() {
           <button type="submit" className="bg-blue-600 text-white px-4 py-1.5 rounded text-sm">{t('save')}</button>
         </form>
       )}
+
+      {/* Pagination */}
+      <div className="flex justify-center gap-2 mb-3">
+        <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 border rounded text-sm disabled:opacity-30">← Prev</button>
+        <span className="px-3 py-1 text-sm text-gray-500">Page {page} ({total} parts)</span>
+        <button disabled={parts.length < 50} onClick={() => setPage(p => p + 1)} className="px-3 py-1 border rounded text-sm disabled:opacity-30">Next →</button>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {parts.map(p => {
