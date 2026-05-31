@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../App';
 import { useT } from '../i18n/I18nContext';
-import { Wrench } from 'lucide-react';
+import { Wrench, Languages } from 'lucide-react';
 
 export default function Login() {
   const { login } = useAuth();
-  const { t } = useT();
+  const { t, lang, toggleLang } = useT();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -23,6 +23,14 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+        {/* Language toggle */}
+        <div className="flex justify-end mb-2">
+          <button onClick={toggleLang} className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 border rounded px-2 py-1">
+            <Languages size={14} />
+            {lang === 'zh' ? 'English' : '中文'}
+          </button>
+        </div>
+
         <div className="flex flex-col items-center mb-6">
           <div className="bg-blue-600 p-3 rounded-full mb-3">
             <Wrench size={32} className="text-white" />

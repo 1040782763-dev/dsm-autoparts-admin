@@ -38,7 +38,7 @@ function initSchema() {
       full_name TEXT NOT NULL,
       phone TEXT,
       whatsapp TEXT,
-      language_pref TEXT DEFAULT 'sw',
+      language_pref TEXT DEFAULT 'en',
       active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
