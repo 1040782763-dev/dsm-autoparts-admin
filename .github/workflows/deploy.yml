@@ -36,7 +36,7 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: v1.29
+          version: v1.30
 
       - name: Write Kubeconfig
         run: |
