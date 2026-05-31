@@ -3,5 +3,6 @@ client/node_modules/
 server/node_modules/
 client/dist/
 server/data/*.db
+!server/data/parts_import.json
 *.log
 .env

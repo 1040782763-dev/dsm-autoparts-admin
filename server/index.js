@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDb, run, queryAll } from './db.js';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 import authRoutes from './routes/auth.js';
 import customerRoutes from './routes/customers.js';
 import partRoutes from './routes/parts.js';
@@ -87,6 +89,28 @@ async function ensureDefaults() {
       run("INSERT INTO parts (part_number,name_en,name_sw,category,wholesale_cost,selling_price,retail_market_price,unit) VALUES (?,?,?,?,?,?,?,?)", [pn,en,sw,cat,wc,sp,rp,unit]);
     }
     console.log(`Added ${parts.length} sample parts`);
+  } else {
+    console.log(`Parts already exist: ${partCount[0]?.c || 0}`);
+  }
+
+  // Import parts from JSON if available
+  try {
+    const jsonPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data', 'parts_import.json');
+    if (fs.existsSync(jsonPath)) {
+      const partsData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+      let added = 0;
+      for (const p of partsData) {
+        try {
+          run('INSERT OR IGNORE INTO parts (part_number, name_en, name_sw, category, wholesale_cost, selling_price, retail_market_price, unit, stock_quantity, description) VALUES (?,?,?,?,?,?,?,?,?,?)',
+            [p.part_number, p.name_en, p.name_sw, p.category, p.wholesale_cost, p.selling_price, p.retail_market_price, p.unit, p.stock_quantity, p.description]);
+          added++;
+        } catch { /* skip duplicates */ }
+      }
+      const total = queryAll('SELECT COUNT(*) as c FROM parts');
+      console.log(`Imported ${added} parts from JSON. Total: ${total[0]?.c}`);
+    }
+  } catch (e) {
+    console.log('Parts JSON import skipped:', e.message);
   }
 
   console.log('Defaults check complete');
